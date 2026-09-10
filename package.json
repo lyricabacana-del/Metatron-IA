@@ -1,0 +1,7 @@
+{
+  "name": "metatron-ia",
+  "version": "1.0.0",
+  "description": "Metatron IA - Chat con Nemotron",
+  "type": "module",
+  "private": true
+}

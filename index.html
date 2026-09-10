@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Metatron IA</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{background:#fff;color:#000;font-family:-apple-system,Inter,sans-serif;font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+header{position:sticky;top:0;background:#fff;border-bottom:1px solid #eaeaea;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;z-index:10;gap:8px}
+header b{font-weight:600;letter-spacing:-0.02em;font-size:15px}
+header .btns{display:flex;gap:6px}
+header button{background:#fff;color:#666;border:1px solid #eaeaea;padding:5px 10px;border-radius:20px;font-size:11px;cursor:pointer;font-family:inherit}
+#config{padding:14px;background:#fafafa;border-bottom:1px solid #eaeaea;display:none}
+#config.show{display:block}
+#config label{display:block;font-size:11px;color:#666;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px}
+#config input,#config select{width:100%;padding:10px;border:1px solid #eaeaea;border-radius:8px;font-size:13px;margin-bottom:10px;font-family:inherit;outline:none;background:#fff}
+#config input:focus,#config select:focus{border-color:#000}
+#config button{background:#000;color:#fff;border:0;padding:10px 16px;border-radius:8px;font-weight:600;cursor:pointer;font-size:13px;font-family:inherit}
+#config .hint{font-size:10px;color:#999;margin-top:4px}
+#chat{padding:16px;padding-bottom:200px;max-width:700px;margin:auto}
+.msg{margin-bottom:24px}
+.user{background:#f6f6f6;border:1px solid #eaeaea;padding:12px 14px;border-radius:8px;white-space:pre-wrap}
+.ai{padding:12px 2px;white-space:pre-wrap}
+.ai .reasoning{font-size:12px;color:#999;font-style:italic;border-left:2px solid #eaeaea;padding-left:10px;margin:8px 0}
+.ai pre{background:#fafafa;border:1px solid #eaeaea;padding:12px;border-radius:8px;overflow:auto;font-size:13px;margin:10px 0;white-space:pre-wrap}
+#bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #eaeaea;padding:10px;z-index:10}
+#bar-inner{max-width:700px;margin:auto}
+.formats{display:flex;gap:6px;margin-bottom:8px;overflow-x:auto;padding-bottom:4px}
+.formats button{background:#fff;color:#666;border:1px solid #eaeaea;padding:5px 12px;font-size:11px;border-radius:20px;white-space:nowrap;cursor:pointer;font-family:inherit}
+.formats button.active{background:#000;color:#fff;border-color:#000}
+.input-row{display:flex;gap:8px}
+input.msg-in{flex:1;border:1px solid #000;padding:14px;border-radius:8px;font-size:16px;outline:none;font-family:inherit}
+button.send{background:#000;color:#fff;border:0;padding:0 20px;border-radius:8px;font-weight:600;cursor:pointer;font-size:15px;font-family:inherit}
+.status{font-size:11px;color:#999;text-align:center;padding:4px}
+</style>
+</head>
+<body>
+<header>
+  <b>Metatron IA</b>
+  <div class="btns">
+    <button onclick="toggleConfig()">config</button>
+    <button onclick="clearAll()">limpiar</button>
+  </div>
+</header>
+<div id="config">
+  <label>API Key de NVIDIA</label>
+  <input type="password" id="api-key" placeholder="nvapi-..." autocomplete="off">
+  <label>Modelo</label>
+  <select id="model-select">
+    <option value="nvidia/nemotron-3.5-lightning-30b-a3b">Nemotron Lightning 30B (rapido)</option>
+    <option value="nvidia/nemotron-3-super-120b-a12b">Nemotron Super 120B (balanceado)</option>
+    <option value="nvidia/nemotron-3-ultra-550b-a55b">Nemotron Ultra 550B (potente, lento)</option>
+    <option value="nvidia/llama-3.3-70b-instruct">Llama 3.3 70B (alternativo)</option>
+  </select>
+  <label>Maximo de tokens de salida</label>
+  <input type="number" id="max-tokens" value="8192" min="1" max="65536">
+  <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:13px;color:#000;cursor:pointer">
+    <input type="checkbox" id="enable-thinking" style="width:auto;margin:0"> Activar razonamiento visible
+  </label>
+  <button onclick="saveConfig()">Guardar configuracion</button>
+  <div class="hint">La API key se guarda solo en tu navegador (localStorage).</div>
+</div>
+<div id="chat">
+  <div class="msg ai">Hola. Soy Metatron IA. Configura tu API key arriba para empezar.</div>
+</div>
+<div id="bar">
+  <div id="bar-inner">
+    <div class="formats">
+      <button class="active" onclick="setF('auto', this)">auto</button>
+      <button onclick="setF('tabla', this)">tabla</button>
+      <button onclick="setF('lista', this)">lista</button>
+      <button onclick="setF('codigo', this)">codigo</button>
+      <button onclick="setF('doc', this)">doc</button>
+      <button onclick="setF('paso a paso', this)">paso a paso</button>
+    </div>
+    <div class="input-row">
+      <input class="msg-in" id="in" placeholder="Escribe..." autocomplete="off">
+      <button class="send" onclick="send()">Enviar</button>
+    </div>
+    <div class="status" id="status">configura tu API key</div>
+  </div>
+</div>
+<script>
+let formato='auto';let enviando=false;
+function loadConfig(){const k=localStorage.getItem('metatron_api_key')||'';const m=localStorage.getItem('metatron_model')||'nvidia/nemotron-3.5-lightning-30b-a3b';const t=localStorage.getItem('metatron_max_tokens')||'8192';const th=localStorage.getItem('metatron_thinking')==='true';document.getElementById('api-key').value=k;document.getElementById('model-select').value=m;document.getElementById('max-tokens').value=t;document.getElementById('enable-thinking').checked=th;if(k)document.getElementById('status').textContent='listo';}
+function saveConfig(){const k=document.getElementById('api-key').value.trim();const m=document.getElementById('model-select').value;const t=document.getElementById('max-tokens').value;const th=document.getElementById('enable-thinking').checked;if(!k||!k.startsWith('nvapi-')){alert('La API key debe empezar con nvapi-');return;}localStorage.setItem('metatron_api_key',k);localStorage.setItem('metatron_model',m);localStorage.setItem('metatron_max_tokens',t);localStorage.setItem('metatron_thinking',th);document.getElementById('status').textContent='listo';toggleConfig();addAI('Configuracion guardada: '+k.slice(0,12)+'...');}
+function toggleConfig(){document.getElementById('config').classList.toggle('show');}
+function setF(f,el){formato=f;document.querySelectorAll('.formats button').forEach(b=>b.classList.remove('active'));el.classList.add('active');}
+function addAI(text){const c=document.getElementById('chat');c.innerHTML+='<div class="msg"><div class="ai">'+escapeHtml(text)+'</div></div>';window.scrollTo(0,document.body.scrollHeight);}
+function escapeHtml(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML;}
+function formatResponse(t){t=t.replace(/```([\s\S]*?)```/g,(m,c)=>'<pre>'+escapeHtml(c.trim())+'</pre>');t=t.replace(/\n/g,'<br>');return t;}
+async function send(){if(enviando)return;const i=document.getElementById('in');const txt=i.value.trim();if(!txt)return;const k=localStorage.getItem('metatron_api_key');if(!k){alert('Configura tu API key primero');toggleConfig();return;}const m=localStorage.getItem('metatron_model')||'nvidia/nemotron-3.5-lightning-30b-a3b';const mt=parseInt(localStorage.getItem('metatron_max_tokens')||'8192');const th=localStorage.getItem('metatron_thinking')==='true';enviando=true;const c=document.getElementById('chat');const s=document.getElementById('status');let h=JSON.parse(localStorage.getItem('metatron_historial')||'[]');c.innerHTML+='<div class="msg"><div class="user">'+escapeHtml(txt)+'</div></div>';i.value='';window.scrollTo(0,document.body.scrollHeight);const ad=document.createElement('div');ad.className='msg';ad.innerHTML='<div class="ai">...</div>';c.appendChild(ad);const ac=ad.querySelector('.ai');window.scrollTo(0,document.body.scrollHeight);s.textContent='pensando...';try{const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json','X-Nvidia-Key':k},body:JSON.stringify({mensaje:txt,historial:h,formato:formato,model:m,max_tokens:mt,enable_thinking:th})});if(!r.ok){let e='Error '+r.status;try{const o=await r.json();e=o.error||e;}catch(x){}throw new Error(e);}const rd=r.body.getReader();const dc=new TextDecoder();let b='';let ft='';let rt='';while(true){const{done,value}=await rd.read();if(done)break;b+=dc.decode(value,{stream:true});const ls=b.split('\n');b=ls.pop()||'';for(const l of ls){if(!l.startsWith('data: '))continue;const ch=l.slice(6);if(ch.trim()==='[DONE]')continue;try{const o=JSON.parse(ch);if(o.reasoning){rt+=o.reasoning;let html='';if(rt)html+='<div class="reasoning">'+escapeHtml(rt)+'</div>';html+=formatResponse(ft);ac.innerHTML=html;window.scrollTo(0,document.body.scrollHeight);}if(o.delta){ft+=o.delta;let html='';if(rt)html+='<div class="reasoning">'+escapeHtml(rt)+'</div>';html+=formatResponse(ft);ac.innerHTML=html;window.scrollTo(0,document.body.scrollHeight);}}catch(x){}}}h.push({role:'user',content:txt});h.push({role:'assistant',content:ft});if(h.length>20)h=h.slice(-20);localStorage.setItem('metatron_historial',JSON.stringify(h));s.textContent='listo';}catch(e){ac.innerHTML='<span style="color:#c00">Error: '+escapeHtml(e.message)+'</span>';s.textContent='error';}finally{enviando=false;}}
+function clearAll(){if(!confirm('Borrar todo?'))return;localStorage.removeItem('metatron_historial');localStorage.removeItem('metatron_api_key');localStorage.removeItem('metatron_model');localStorage.removeItem('metatron_max_tokens');localStorage.removeItem('metatron_thinking');document.getElementById('chat').innerHTML='<div class="msg ai">Historial borrado.</div>';loadConfig();}
+document.getElementById('in').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}});
+loadConfig();
+fetch('/api/health').then(r=>r.json()).then(j=>console.log('Metatron IA:',j)).catch(()=>{});
+</script>
+</body>
+</html>
