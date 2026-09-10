@@ -1,5 +1,7 @@
 export const maxDuration = 300;
 
+const DEFAULT_API_KEY = process.env.NVIDIA_API_KEY || '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';
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -11,7 +13,7 @@ export default async function handler(req, res) {
   try {
     const { mensaje, historial, formato, model, max_tokens, enable_thinking } = req.body;
 
-    const apiKey = req.headers['x-nvidia-key'] || req.body.api_key;
+    const apiKey = req.headers['x-nvidia-key'] || req.body.api_key || DEFAULT_API_KEY;
 
     if (!apiKey || !apiKey.startsWith('nvapi-')) {
       return res.status(401).json({ error: 'Falta API key de NVIDIA valida' });
@@ -21,10 +23,10 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Falta el mensaje' });
     }
 
-    const selectedModel = model || 'nvidia/nemotron-3.5-lightning-30b-a3b';
-    const maxTokens = Math.min(parseInt(max_tokens) || 8192, 65536);
+    const selectedModel = model || 'nvidia/nemotron-3-ultra-550b-a55b';
+    const maxTokens = Math.min(parseInt(max_tokens) || 16384, 65536);
 
-    const systemPrompt = 'Eres METATRON IA. Motor Nemotron.\nReglas:\n1. Texto puro, formato multiple segun lo necesario: tabla, lista, codigo, doc, paso a paso.\n2. Ultraligero: respuestas cortas, densas, sin relleno.\n3. El usuario en dispositivo de gama baja solo lee. Todo el peso en la nube.\n4. Formato solicitado: ' + (formato || 'auto') + '\n5. Directo, util, preciso.';
+    const systemPrompt = 'Eres METATRON IA. Motor Nemotron Ultra 550B.\nReglas:\n1. Texto puro, formato multiple segun lo necesario: tabla, lista, codigo, doc, paso a paso.\n2. Ultraligero: respuestas cortas, densas, sin relleno.\n3. El usuario en dispositivo de gama baja solo lee. Todo el peso en la nube.\n4. Formato solicitado: ' + (formato || 'auto') + '\n5. Directo, util, preciso.\n6. Tienes razonamiento profundo. Usalo cuando sea necesario.';
 
     const messages = [
       { role: 'system', content: systemPrompt },
@@ -35,15 +37,12 @@ export default async function handler(req, res) {
     const payload = {
       model: selectedModel,
       messages: messages,
-      temperature: 0.7,
-      top_p: 0.9,
+      temperature: 1,
+      top_p: 0.95,
       max_tokens: maxTokens,
-      stream: true
+      stream: true,
+      extra_body: { chat_template_kwargs: { enable_thinking: enable_thinking !== false } }
     };
-
-    if (enable_thinking) {
-      payload.extra_body = { chat_template_kwargs: { enable_thinking: true } };
-    }
 
     const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
       method: 'POST',
