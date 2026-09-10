@@ -1,0 +1,24 @@
+name: Borrar Bloq desde WhatsApp
+on:
+  issues:
+    types: [opened]
+jobs:
+  borrar:
+    if: contains(github.event.issue.title, 'borrar bloq')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Borrar archivo
+        run: |
+          NUM=$(echo "${{ github.event.issue.title }}" | grep -oE "[0-9]+" | head -1)
+          NUM=$(printf "%03d" $NUM)
+          rm -f bloqs/bloq${NUM}.html
+          git config user.name "metatron-bot"
+          git config user.email "bot@metatron.ia"
+          git add -A
+          git commit -m "auto: borrar bloq $NUM" || echo "nada que borrar"
+          git push
+      - name: Cerrar Issue
+        run: gh issue close ${{ github.event.issue.number }} --reason completed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
